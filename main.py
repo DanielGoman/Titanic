@@ -1,16 +1,23 @@
-# This is a sample Python script.
+from preprocess import Preprocessor, Imputer, SelectKBest
+from model import Model
 
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
-
-
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+import numpy as np
+import pandas as pd
+from sklearn.pipeline import Pipeline
 
 
-# Press the green button in the gutter to run the script.
+def main():
+    df = pd.read_csv('data/train.csv')
+    pipe = Pipeline([('Preprocessor', Preprocessor()),
+                     ('Imputer', Imputer()),
+                     ('Model', Model())
+                     ])
+    X = df.drop('Survived', axis=1)
+    y = df['Survived']
+    pipe.fit(X, y)
+    out = pipe.predict(X.iloc[:100])
+    print(out)
+
+
 if __name__ == '__main__':
-    print_hi('PyCharm')
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+    main()
