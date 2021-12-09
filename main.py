@@ -3,34 +3,29 @@ from model import Model
 
 import pandas as pd
 from sklearn.pipeline import Pipeline
-from sklearn.model_selection import train_test_split
 from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import *
-
-test_size = 0.3
-
-# TODO: move project to a new branch
-#       issue a pull request to have Moshe do CR on the code
 
 
 def main():
     df = pd.read_csv('data/train.csv')
+
     pipe = Pipeline([('Preprocessor', Preprocessor()),
                      ('Imputer', Imputer()),
                      ('Model', Model())
                      ])
+
     X = df.drop('Survived', axis=1)
     y = df['Survived']
-    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=test_size, random_state=42)
 
-    pipe.fit(X_train, y_train)
-    predictions = pipe.predict(X_val)
+    params = {}
+    params['Imputer__n_estimators'] = [100, 200, 300]
+    params['Imputer__max_depth'] = [10, 15, 20, 25]
 
-    # TODO: read about metrics and choose which to use
-    score = roc_auc_score(y_val, predictions)
-    print(f'Score: {round(score, 4)}')
+    grid = GridSearchCV(pipe, params, cv=5, scoring='roc_auc')
+    grid.fit(X, y)
 
-    # TODO: write a function to run GridSearchCV obtain optimal parameters/model
+    print(f'Best score: {grid.best_score_}')
+    print(f'Best params: {grid.best_params_}')
 
 
 if __name__ == '__main__':

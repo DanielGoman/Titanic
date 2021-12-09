@@ -3,10 +3,12 @@ import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 
+from itertools import chain
+
 
 class Preprocessor:
     def __init__(self):
-        super(Preprocessor, self).__init__()
+        super().__init__()
         self.title_mapper = {'junior': ['Miss.', 'Miss', 'Master.', 'Master'],
                              'senior': ['Ms.', 'Mrs.', 'Ms', 'Mrs', 'Mr.', 'Mr', 'Dr.'],
                              'other': []}
@@ -16,11 +18,9 @@ class Preprocessor:
         self.cols_to_drop = ['Name', 'Ticket', 'Cabin']
 
     def fit(self, X: pd.DataFrame, y: pd.Series) -> Preprocessor:
-        print('Preprocessor fit')
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
-        print('Preprocessor transform')
         df = X.copy()
 
         transforms = [self.cabin_transform,
@@ -36,9 +36,11 @@ class Preprocessor:
 
         return out_df
 
-    # split the 'Cabin' feature into 2 features - 'cabin_type' and 'cabin_indexes'
-    # 'cabin_type' - the first letter of the 'Cabin' feature
-    # 'cabin_indexes' - the room numbers that follow the first letter of the 'Cabin' feature
+    # Split the 'Cabin' feature into 2 features - 'cabin_type' and 'cabin_indexes'
+    #   'cabin_type' - the first letter of the 'Cabin' feature
+    #   'cabin_indexes' - the room numbers that follow the first letter of the 'Cabin' feature
+    # input:    df: pd.DataFrame - target df
+    # output:   cabin_df: pd.DataFrame - transformed df
     def cabin_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         cabins = df['Cabin'].dropna().map(lambda x: x.split(' '))
 
@@ -64,11 +66,13 @@ class Preprocessor:
 
         return cabin_df
 
-    # added 'grouping_type' feature with 4 categories:
+    # Added 'grouping_type' feature with 4 categories:
     #   parents_with_kids - passenger which is a parent with kids on board
     #   kids_with_parents - passenger which is a kid with parents on board
     #   alone_or_friends - passenger which is either alone or is traveling with friends on board
     #   other - any other unhandled case
+    # input:    df: pd.DataFrame - target df
+    # output:   grouping_type_df: pd.DataFrame - transformed df
     def grouping_type_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         parents_idx = df[((df['Age'] > 20) & (df['SibSp'] == 1) & (df['Parch'] > 0)) |
                          ((df['Age'] > 25) & (df['Parch'] > 0))
@@ -96,8 +100,10 @@ class Preprocessor:
 
         return grouping_type_df
 
-    # added binary 'SibSp' and 'Parch' features
-    # i.e. 1 if val > 0, else 0
+    # Added binary 'SibSp' and 'Parch' features
+    #   i.e. 1 if val > 0, else 0
+    # input:    df: pd.DataFrame - target df
+    # output:   boolean_df: pd.DataFrame - transformed df
     def boolean_sibsp_parch(self, df: pd.DataFrame) -> pd.DataFrame:
         boolean_df = df.copy()
         boolean_df['binary_SibSp'] = 0
@@ -108,9 +114,11 @@ class Preprocessor:
 
         return boolean_df
 
-    # added 'multiple_cabins' feature
-    # 1 - if the passenger has more than one cabin
-    # 0 - if they have only 1 cabin
+    # Added 'multiple_cabins' feature
+    #   1 - if the passenger has more than one cabin
+    #   0 - if they have only 1 cabin
+    # input:    df: pd.DataFrame - target df
+    # output:   in_cabin_count_df: pd.DataFrame - transformed df
     def multiple_cabins_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         cabin_count = df['Cabin'].value_counts()
         count_index = cabin_count[cabin_count > 1].index
@@ -122,8 +130,10 @@ class Preprocessor:
 
         return in_cabin_count_df
 
-    # added 'age_group' feature according to the title of the passengers
-    # mapping can be found in self.title_mapper
+    # Added 'age_group' feature according to the title of the passengers
+    #   Mapping can be found in self.title_mapper
+    # input:    df: pd.DataFrame - target df
+    # output:   cabin_df: pd.DataFrame - transformed df
     def age_groups_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         age_grp_df = df.copy()
 
@@ -150,23 +160,27 @@ class Preprocessor:
 
 class Imputer:
     def __init__(self):
-        super(Imputer, self).__init__()
+        super().__init__()
         self.reg_dict = {}
         self.missing_indexes_value = -50
         self.age_groups = ['senior', 'junior']
         self.trained_features = {}
 
+    def set_params(self, **params: dict) -> Imputer:
+        for key, val in params.items():
+            setattr(self, key, val)
+        return self
+
     # TODO: try MICE imputation strategy
     def fit(self, X: pd.DataFrame, y: pd.Series) -> Imputer:
-        print('Imputer fit')
         df = X.copy()
 
         # imputing missing values of the 'age' feature
         for age_group in self.age_groups:
             temp_df = df[df['age_group'] == age_group].copy()
             temp_df = temp_df.drop(['cabin_type', 'cabin_indexes'], axis=1)
-            reg = RandomForestRegressor(n_estimators=300,
-                                        max_depth=25,
+            reg = RandomForestRegressor(n_estimators=getattr(self, 'n_estimators'),
+                                        max_depth=getattr(self, 'max_depth'),
                                         random_state=42)
 
             temp_df = pd.get_dummies(temp_df)
@@ -184,8 +198,6 @@ class Imputer:
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         df = X.copy()
-
-        print('Imputer transform')
         imputed_df = df.copy()
 
         for age_group in self.age_groups:
@@ -197,17 +209,7 @@ class Imputer:
             X_missing = pd.get_dummies(X_missing)
 
             # dropping features which the imputation model wasn't trained on
-            features_to_drop = set(X_missing.columns) - set(self.trained_features[age_group])
-            features_to_drop = [item for item in features_to_drop]
-            X_missing = X_missing.drop(features_to_drop, axis=1)
-
-            # adding features which the imputation model was trained on and are missing in the test set
-            features_to_add = set(self.trained_features[age_group]) - set(X_missing.columns)
-            features_to_add = [item for item in features_to_add]
-            X_missing[features_to_add] = 0
-
-            # reordering features to match the input order into the imputation model
-            X_missing = X_missing[self.trained_features[age_group]]
+            X_missing = self.adjust_features(X_missing, self.trained_features[age_group])
 
             y_pred = np.ceil(regressor.predict(X_missing))
             imputed_df.loc[X_missing.index, 'Age'] = y_pred
@@ -215,10 +217,15 @@ class Imputer:
         imputed_df = self.cabin_indexes_impute(imputed_df)
         imputed_df = self.cabin_type_impute(imputed_df)
 
-        return pd.get_dummies(imputed_df)
+        dummies_df = pd.get_dummies(imputed_df)
+        trained_features = list(chain.from_iterable(self.trained_features.values()))
+        adjusted_features_df = self.adjust_features(dummies_df, trained_features)
+        return adjusted_features_df
 
     # averaged over the 'cabin_indexes' feature to have a single numeric value
     # missing cells were imputed with a constant value
+    # input:    df: pd.DataFrame - target df
+    # output:   avg_cabin_index_df: pd.DataFrame - transformed df
     def cabin_indexes_impute(self, df: pd.DataFrame) -> pd.DataFrame:
         def avg_cabin_index(item):
             if type(item) == list:
@@ -242,8 +249,32 @@ class Imputer:
 
         return cabin_type_missing_label_df
 
+    # adjusts the columns of the df for the DataFrame of val/test sets
+    # This is needed as we're not guaranteed to get the exact same subset
+    # of features when using pd.get_dummies on the val/test set, since not all
+    # values that appear in one df necessarily appear in the other df.
+    # input:    df: pd.DataFrame - the df to be adjusted
+    #           trained_features: dict - subset of features which the train set had after pd.get_dummies
+    # output:   X_missing: pd.DataFrame - adjusted df
+    def adjust_features(self, df: pd.DataFrame, trained_features: dict) -> pd.DataFrame:
+        X_missing = df.copy()
+        # dropping features which the imputation model wasn't trained on
+        features_to_drop = set(X_missing.columns) - set(trained_features)
+        features_to_drop = [item for item in features_to_drop]
+        X_missing = X_missing.drop(features_to_drop, axis=1)
 
-# TODO: choose a method for feature selection and implement
+        # adding features which the imputation model was trained on and are missing in the test set
+        features_to_add = set(trained_features) - set(X_missing.columns)
+        features_to_add = [item for item in features_to_add]
+        X_missing[features_to_add] = 0
+
+        # reordering features to match the input order into the imputation model
+        X_missing = X_missing[trained_features]
+
+        return X_missing
+
+
+# TODO: choose a method for feature selection and implement it
 class SelectKBest:
     def __init__(self):
         super(SelectKBest, self).__init__()
