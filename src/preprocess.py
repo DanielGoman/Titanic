@@ -117,8 +117,7 @@ class Preprocessor:
         more_than_one_in_cabin = df.loc[df['Cabin'].isin(count_index)]
 
         in_cabin_count_df = df.copy()
-        in_cabin_count_df['multiple_cabins'] = pd.Series(data=np.zeros(in_cabin_count_df.shape[0]),
-                                                         index=in_cabin_count_df.index, dtype=int)
+        in_cabin_count_df['multiple_cabins'] = 0
         in_cabin_count_df.loc[more_than_one_in_cabin.index, 'multiple_cabins'] = 1
 
         return in_cabin_count_df
@@ -157,6 +156,7 @@ class Imputer:
         self.age_groups = ['senior', 'junior']
         self.trained_features = {}
 
+    # TODO: try MICE imputation strategy
     def fit(self, X: pd.DataFrame, y: pd.Series) -> Imputer:
         print('Imputer fit')
         df = X.copy()
@@ -214,7 +214,8 @@ class Imputer:
 
         imputed_df = self.cabin_indexes_impute(imputed_df)
         imputed_df = self.cabin_type_impute(imputed_df)
-        return imputed_df
+
+        return pd.get_dummies(imputed_df)
 
     # averaged over the 'cabin_indexes' feature to have a single numeric value
     # missing cells were imputed with a constant value
@@ -242,6 +243,7 @@ class Imputer:
         return cabin_type_missing_label_df
 
 
+# TODO: choose a method for feature selection and implement
 class SelectKBest:
     def __init__(self):
         super(SelectKBest, self).__init__()
