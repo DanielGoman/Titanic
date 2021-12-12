@@ -19,6 +19,7 @@ def main():
                   FeatureExtractor.drop_columns_transform]
 
     pipe = Pipeline([('FeatureExtractor', FeatureExtractor(transforms)),
+                     ('SelectKBest', SelectKBest()),
                      ('MissingFeaturesImputer', MissingFeaturesImputer()),
                      ('Model', Model())
                      ])
@@ -29,6 +30,8 @@ def main():
     params = {}
     params['MissingFeaturesImputer__n_estimators'] = [300]
     params['MissingFeaturesImputer__max_depth'] = [25]
+    params['SelectKBest__numerical_features_num'] = [4, 5, 6, 7]
+    params['SelectKBest__categorial_features_num'] = [3, 4, 5]
 
     grid = GridSearchCV(pipe, params, cv=5, scoring='roc_auc')
     grid.fit(X, y)
