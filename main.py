@@ -1,5 +1,7 @@
-from preprocess import Preprocessor, Imputer, SelectKBest
-from model import Model
+from src.model import Model
+from src.FeatureExtractor import FeatureExtractor
+from src.MissingFeaturesImputer import MissingFeaturesImputer
+from src.SelectKBest import SelectKBest
 
 import pandas as pd
 from sklearn.pipeline import Pipeline
@@ -9,8 +11,15 @@ from sklearn.model_selection import GridSearchCV
 def main():
     df = pd.read_csv('data/train.csv')
 
-    pipe = Pipeline([('Preprocessor', Preprocessor()),
-                     ('Imputer', Imputer()),
+    transforms = [FeatureExtractor.cabin_transform,
+                  FeatureExtractor.grouping_type_transform,
+                  FeatureExtractor.boolean_sibsp_parch,
+                  FeatureExtractor.multiple_cabins_transform,
+                  FeatureExtractor.age_groups_transform,
+                  FeatureExtractor.drop_columns_transform]
+
+    pipe = Pipeline([('FeatureExtractor', FeatureExtractor(transforms)),
+                     ('MissingFeaturesImputer', MissingFeaturesImputer()),
                      ('Model', Model())
                      ])
 
@@ -18,8 +27,8 @@ def main():
     y = df['Survived']
 
     params = {}
-    params['Imputer__n_estimators'] = [100, 200, 300]
-    params['Imputer__max_depth'] = [10, 15, 20, 25]
+    params['MissingFeaturesImputer__n_estimators'] = [300]
+    params['MissingFeaturesImputer__max_depth'] = [25]
 
     grid = GridSearchCV(pipe, params, cv=5, scoring='roc_auc')
     grid.fit(X, y)
