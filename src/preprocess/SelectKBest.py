@@ -16,7 +16,7 @@ class SelectKBest:
             setattr(self, key, val)
         return self
 
-    def fit(self, X: pd.DataFrame, y: pd.DataFrame) -> SelectKBest:
+    def fit(self, X: pd.DataFrame, y: pd.Series) -> SelectKBest:
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
