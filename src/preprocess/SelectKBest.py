@@ -1,15 +1,13 @@
 from __future__ import annotations
 import pandas as pd
+from sklearn.feature_selection import RFE
 
 
-# TODO: choose a method for feature selection and implement it
 class SelectKBest:
-    numerical_features = ['age_group', 'Sex', 'Pclass', 'cabin_type', 'Embarked', 'multiple_cabins', 'grouping_type']
-    categorial_features = ['cabin_indexes', 'Fare', 'Age', 'Parch', 'SibSp']
-
-    def __init__(self):
-        self.numerical_features_num = None
-        self.categorial_features_num = None
+    def __init__(self, estimator, get_as_numpy):
+        self.estimator = estimator
+        self.get_as_numpy = get_as_numpy
+        self.rfe = None
 
     def set_params(self, **params: dict) -> SelectKBest:
         for key, val in params.items():
@@ -17,11 +15,14 @@ class SelectKBest:
         return self
 
     def fit(self, X: pd.DataFrame, y: pd.Series) -> SelectKBest:
+        input_X = X.copy()
+        if self.get_as_numpy:
+            input_X = X.to_numpy()
+        self.estimator = self.estimator.fit(input_X, y)
+        self.rfe = RFE(self.estimator, n_features_to_select=getattr(self, 'n_features_to_select'))
+        self.rfe.fit(X, y)
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
-        selected_numerical_features = SelectKBest.numerical_features[:getattr(self, 'numerical_features_num')]
-        selected_categorial_features = SelectKBest.categorial_features[:getattr(self, 'categorial_features_num')]
-
-        selected_features = selected_numerical_features + selected_categorial_features
-        return X[selected_features]
+        X_transformed = self.rfe.transform(X)
+        return X_transformed

@@ -10,10 +10,11 @@ class Oversampler:
     target_feature = 'Survived'
     missing_features = ['age', 'Cabin']
 
-    def __init__(self, get_as_numpy):
-        self.get_as_numpy = get_as_numpy
+    def __init__(self):
+        pass
 
-    def fit_resample(self, X: pd.DataFrame, y: pd.Series):
+    @staticmethod
+    def fit_resample(X: pd.DataFrame, y: pd.Series):
         categorial_columns_indexes = []
         for i, col in enumerate(X.columns):
             for categorial_feature in Oversampler.categorial_features:
@@ -23,6 +24,5 @@ class Oversampler:
         oversampler = SMOTENC(categorical_features=categorial_columns_indexes, random_state=42)
 
         oversampled_X, oversampled_y = oversampler.fit_resample(X.to_numpy(), y)
-        if not self.get_as_numpy:
-            oversampled_X = pd.DataFrame(oversampled_X, columns=X.columns)
+        oversampled_X = pd.DataFrame(oversampled_X, columns=X.columns)
         return oversampled_X, oversampled_y
