@@ -1,7 +1,7 @@
 from src.preprocess.FeatureExtractor import FeatureExtractor
 import pandas as pd
 
-from src.RunGridsearchCV import run
+from src.RunParameterSearchCV import run
 
 
 def main():
@@ -21,8 +21,11 @@ def main():
 
     scorers = ['roc_auc', 'f1', 'balanced_accuracy']
 
+    search_type = 'randomized'
+
     run(df=df,
         model_names=models,
+        search_type=search_type,
         scorers=scorers,
         transforms=transforms,
         out_path=out_path,

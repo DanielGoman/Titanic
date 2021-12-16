@@ -1,0 +1,42 @@
+AdaBoost scores:
+	roc_auc score: 0.8371
+	f1 score: 0.7031
+	balanced_accuracy score: 0.7619
+
+	AdaBoost best params:
+		MissingFeaturesImputer__max_depth = 10
+		MissingFeaturesImputer__n_estimators = 150
+		Model__learning_rate = 0.1
+		Model__n_estimators = 200
+		SelectKBest__n_features_to_select = 0.75
+
+
+GradientBoost scores:
+	roc_auc score: 0.8582
+	f1 score: 0.7725
+	balanced_accuracy score: 0.818
+
+	GradientBoost best params:
+		MissingFeaturesImputer__max_depth = 10
+		MissingFeaturesImputer__n_estimators = 150
+		Model__learning_rate = 0.05
+		Model__max_depth = 3
+		Model__min_samples_split = 2
+		Model__n_estimators = 300
+		SelectKBest__n_features_to_select = 0.75
+
+
+XGBoost scores:
+	roc_auc score: 0.8408
+	f1 score: 0.7324
+	balanced_accuracy score: 0.7861
+
+	XGBoost best params:
+		MissingFeaturesImputer__max_depth = 10
+		MissingFeaturesImputer__n_estimators = 150
+		Model__eta = 1
+		Model__gamma = 2
+		Model__max_depth = 4
+		SelectKBest__n_features_to_select = 0.5
+
+

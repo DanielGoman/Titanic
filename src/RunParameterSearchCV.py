@@ -6,7 +6,7 @@ from src.preprocess.oversampler import Oversampler
 
 import pandas as pd
 from imblearn.pipeline import Pipeline
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 
 # models
 from sklearn.svm import SVC
@@ -117,37 +117,38 @@ def get_model_config(model_name: str, random_state: int) -> (None, dict, bool):
         params: dict
           dictionary of parameters for the model component
     """
-    params = dict()
+    model_params = dict()
     if model_name == 'RandomForest':
-        params['Model__n_estimators'] = [150, 300]
-        params['Model__max_depth'] = [5, 7]
-        params['Model__min_samples_split'] = [2, 3]
-        return RandomForestClassifier(random_state=random_state), params
+        model_params['Model__n_estimators'] = [150, 300]
+        model_params['Model__max_depth'] = [5, 7]
+        model_params['Model__min_samples_split'] = [2, 3]
+        return RandomForestClassifier(random_state=random_state), model_params
     if model_name == 'AdaBoost':
-        params['Model__n_estimators'] = [200, 300]
-        params['Model__learning_rate'] = [0.1, 0.2]
-        return AdaBoostClassifier(random_state=random_state), params
+        model_params['Model__n_estimators'] = [200, 300]
+        model_params['Model__learning_rate'] = [0.1, 0.2]
+        return AdaBoostClassifier(random_state=random_state), model_params
     if model_name == 'GradientBoost':
-        params['Model__min_samples_split'] = [2]
-        params['Model__max_depth'] = [3, 5]
-        params['Model__learning_rate'] = [0.05, 0.1]
-        params['Model__n_estimators'] = [300, 400]
-        return GradientBoostingClassifier(random_state=random_state), params
+        model_params['Model__min_samples_split'] = [2]
+        model_params['Model__max_depth'] = [3, 5]
+        model_params['Model__learning_rate'] = [0.05, 0.1]
+        model_params['Model__n_estimators'] = [300, 400]
+        return GradientBoostingClassifier(random_state=random_state), model_params
     elif model_name == 'XGBoost':
-        params['Model__eta'] = [1]  # [1, 2]
-        params['Model__gamma'] = [1, 2]
-        params['Model__max_depth'] = [4, 6]
-        return XGBClassifier(use_label_encoder=False, random_state=random_state, verbosity=0), params
+        model_params['Model__eta'] = [1]  # [1, 2]
+        model_params['Model__gamma'] = [1, 2]
+        model_params['Model__max_depth'] = [4, 6]
+        return XGBClassifier(use_label_encoder=False, random_state=random_state, verbosity=0), model_params
     elif model_name == 'SVM':
-        params['Model__kernel'] = ['rbf']
-        params['Model__degree'] = [2]
-        return SVC(random_state=random_state), params
+        model_params['Model__kernel'] = ['rbf']
+        model_params['Model__degree'] = [2]
+        return SVC(random_state=random_state), model_params
 
 
 @run_all_models
 @runtime_counter
 @set_logger
-def run(df: pd.DataFrame, model_name: str, scorers: list, transforms: list, n_jobs: int, random_state: int):
+def run(df: pd.DataFrame, model_name: str, search_type: str, scorers: list,
+        transforms: list, n_jobs: int, random_state: int):
     """Runs the grid search cv
 
     Runs the grid search cv over the given model and parameters
@@ -157,6 +158,8 @@ def run(df: pd.DataFrame, model_name: str, scorers: list, transforms: list, n_jo
           the input dataframe, containing both X and y
         model_name: str
           the name of the model to be trained in this run
+        search_type: str
+          the type of the searchCV to be used - either GridSearchCV or RandomizedSearchCV
         scorers: list
           list of scoring functions to evaluate the performance of the model
         transforms: list
@@ -175,7 +178,7 @@ def run(df: pd.DataFrame, model_name: str, scorers: list, transforms: list, n_jo
           optimal value found by the grid search cv
 
     """
-    model, params = get_model_config(model_name, random_state)
+    model, pipe_params = get_model_config(model_name, random_state)
 
     pipe = Pipeline([('FeatureExtractor', FeatureExtractor(transforms)),
                      ('MissingFeaturesImputer', MissingFeaturesImputer()),
@@ -187,17 +190,26 @@ def run(df: pd.DataFrame, model_name: str, scorers: list, transforms: list, n_jo
     X = df.drop('Survived', axis=1)
     y = df['Survived']
 
-    params['MissingFeaturesImputer__n_estimators'] = [75, 150]
-    params['MissingFeaturesImputer__max_depth'] = [10, 15]
-    params['SelectKBest__n_features_to_select'] = [0.5, 0.75, 1]
+    pipe_params['MissingFeaturesImputer__n_estimators'] = [75, 150]
+    pipe_params['MissingFeaturesImputer__max_depth'] = [10, 15]
+    pipe_params['SelectKBest__n_features_to_select'] = [0.5, 0.75, 1]
 
-    grid = GridSearchCV(pipe=pipe,
-                        params=params,
-                        cv=5,
-                        scoring=scorers,
-                        refit='roc_auc',
-                        verbose=1,
-                        n_jobs=n_jobs)
+    search_params = {'estimator': pipe,
+                     'cv': 5,
+                     'scoring': scorers,
+                     'refit': 'roc_auc',
+                     'verbose': 1,
+                     'n_jobs': n_jobs,
+                     }
+
+    if search_type == 'grid':
+        grid = GridSearchCV(param_grid=pipe_params, **search_params)
+    elif search_type == 'randomized':
+        grid = RandomizedSearchCV(param_distributions=pipe_params, **search_params)
+    else:
+        raise ValueError(f"Invalid type of search {search_type} for parameter 'search_type'")
+
     grid.fit(X, y)
 
     return grid.cv_results_, grid.best_params_
+
