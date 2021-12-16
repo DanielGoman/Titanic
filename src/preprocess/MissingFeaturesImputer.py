@@ -7,9 +7,21 @@ from itertools import chain
 
 
 class MissingFeaturesImputer:
+    """Performs missing data imputations
+
+    This class imputes all missing data that there is in the given dataset
+
+    Attributes:
+        missing_index_value: int
+          a value to impute for the feature of 'cabin_indexes'
+        absence_label: str
+          a label to impute for the feature of 'cabin_type'
+        age_groups: list
+          list of available labels of the feature 'age_group'
+    """
     missing_indexes_value = -50
-    age_groups = ['senior', 'junior']
     absence_label = 'Missing'
+    age_groups = ['senior', 'junior']
 
     def __init__(self):
         self.regressors_dict = {}
@@ -24,6 +36,20 @@ class MissingFeaturesImputer:
 
     # TODO: try MICE imputation strategy
     def fit(self, X: pd.DataFrame, y: pd.Series) -> MissingFeaturesImputer:
+        """Fits the imputation model
+
+        Trains a model to predict the 'age' feature, one per each 'age_group' category
+
+        Args:
+            X: pd.DataFrame
+              the dataframe of independent features to be imputed
+            y: pd.Series
+              a series of the labels, corresponding to X
+
+        Returns:
+            self: MissingFeatureImputer
+              returns itself, as the sklearn.Pipeline API requires
+        """
         df = X.copy()
 
         # imputing missing values of the 'age' feature
@@ -48,6 +74,20 @@ class MissingFeaturesImputer:
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+        """Imputes the given dataframe
+
+        Performs all the imputations required.
+        For the 'age' feature, for each label of 'age_group' uses the respective model
+        trained in the fit stage to predict the missing values of 'age'
+
+        Args:
+            X: pd.DataFrame
+              the dataframe to be imputed
+
+        Returns:
+            adjusted_features_df: pd.DataFrame
+              the imputed dataframe
+        """
         df = X.copy()
         imputed_df = df.copy()
 
@@ -73,11 +113,22 @@ class MissingFeaturesImputer:
         adjusted_features_df = self.adjust_features(dummies_df, trained_features)
         return adjusted_features_df
 
-    # averaged over the 'cabin_indexes' feature to have a single numeric value
-    # missing cells were imputed with a constant value
-    # input:    df: pd.DataFrame - target df
-    # output:   avg_cabin_index_df: pd.DataFrame - transformed df
     def cabin_indexes_impute(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Imputes the cabin_indexes feature
+
+        Imputes the cabin_indexes feature, first by averaging over the
+        values of the list (for each entry that is not missing)
+        and then filling the missing entries with a value stored in the
+        class attribute missing_indexes_value
+
+        Args:
+            df: pd.DataFrame
+             the dataframe to be imputed
+
+        Returns:
+            avg_cabin_index_df: pd.DataFrame
+              the imputed dataframe
+        """
         def avg_cabin_index(item):
             if not item:
                 return self.missing_indexes_value
@@ -89,9 +140,21 @@ class MissingFeaturesImputer:
 
         return avg_cabin_index_df
 
-    # encoded the absence of 'cabin_type' using an additional label - 'Missing'
     @staticmethod
     def cabin_type_impute(df: pd.DataFrame) -> pd.DataFrame:
+        """Imputes the cabin_type feature
+
+        Imputes the cabin_type feature by filling the missing entries with
+        the label stored in the class attribute absence_label
+
+        Args:
+            df: pd.DataFrame
+             the dataframe to be imputed
+
+        Returns:
+            avg_cabin_index_df: pd.DataFrame
+              the imputed dataframe
+        """
         cabin_type_missing_label_df = df.copy()
         missing_idx = cabin_type_missing_label_df['cabin_type'][cabin_type_missing_label_df['cabin_type'].isna()].index
 
@@ -99,15 +162,24 @@ class MissingFeaturesImputer:
 
         return cabin_type_missing_label_df
 
-    # adjusts the columns of the df for the DataFrame of val/test sets
-    # This is needed as we're not guaranteed to get the exact same subset
-    # of features when using pd.get_dummies on the val/test set, since not all
-    # values that appear in one df necessarily appear in the other df.
-    # input:    df: pd.DataFrame - the df to be adjusted
-    #           trained_features: dict - subset of features which the train set had after pd.get_dummies
-    # output:   X_missing: pd.DataFrame - adjusted df
     @staticmethod
-    def adjust_features(df: pd.DataFrame, trained_features: dict) -> pd.DataFrame:
+    def adjust_features(df: pd.DataFrame, trained_features: list) -> pd.DataFrame:
+        """Removes redundant features, adds missing features
+
+        Adjusts the columns of the df for the DataFrame of val/test sets
+        This is needed as we're not guaranteed to get the exact same subset
+        of features when using pd.get_dummies on the val/test set, since not all
+        values that appear in one df necessarily appear in the other df.
+
+        Args:
+            df: pd.DataFrame
+              the dataframe who's set of features needs to be adjusted
+            trained_features: list
+              the set of feature present during the training of the regressor models
+        Returns:
+            X_missing: pd.DataFrame
+              the input df, after his features were adjusted
+        """
         X_missing = df.copy()
         # dropping features which the imputation model wasn't trained on
         features_to_drop = list(set(X_missing.columns) - set(trained_features))

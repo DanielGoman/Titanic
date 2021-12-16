@@ -22,6 +22,15 @@ import os
 
 def run_all_models(func):
     def run_loop(**kargs):
+        """Decorator that runs all chosen models
+
+        Empties the output file and iteratively calls runs a grid search cv
+        for each of the models.
+
+        Args:
+            **kargs:
+              dictionary of key worded parameters to pass to func
+        """
         model_names = kargs.pop('model_names')
         if os.path.exists(kargs['out_path']):
             os.remove(kargs['out_path'])
@@ -35,6 +44,14 @@ def run_all_models(func):
 
 def runtime_counter(func):
     def timer(**kargs):
+        """Timer decorator
+
+        Counts the runtime of the grid search over each model
+
+        Args:
+            **kargs:
+              dictionary of key worded parameters to pass to func
+        """
         start_time = time.time()
         func(**kargs)
         end_time = time.time()
@@ -49,6 +66,14 @@ def runtime_counter(func):
 
 def set_logger(func):
     def logger(**kargs):
+        """Logger decorator
+
+        Writes output to both the terminal and an output file
+
+        Args:
+            **kargs:
+              dictionary of key worded parameters to pass to func
+        """
         out_path = kargs.pop('out_path')
         model_name = kargs['model_name']
         scorers = kargs['scorers']
@@ -75,6 +100,23 @@ def set_logger(func):
 
 
 def get_model_config(model_name: str, random_state: int) -> (None, dict, bool):
+    """Model parameters configuration function
+
+    For each model configures the chosen parameters to use
+    for the grid search cv
+
+    Args:
+        model_name: str
+          dictionary of key worded parameters to pass to func
+        random_state: int
+          random state parameter for all of the components of the pipeline
+
+    Returns:
+        Model:
+          the model component for the pipeline
+        params: dict
+          dictionary of parameters for the model component
+    """
     params = dict()
     if model_name == 'RandomForest':
         params['Model__n_estimators'] = [150, 300]
@@ -105,7 +147,34 @@ def get_model_config(model_name: str, random_state: int) -> (None, dict, bool):
 @run_all_models
 @runtime_counter
 @set_logger
-def run(df: pd.DataFrame, model_name, scorers, transforms: list, random_state: int):
+def run(df: pd.DataFrame, model_name: str, scorers: list, transforms: list, n_jobs: int, random_state: int):
+    """Runs the grid search cv
+
+    Runs the grid search cv over the given model and parameters
+
+    Args:
+        df: pd.DataFrame
+          the input dataframe, containing both X and y
+        model_name: str
+          the name of the model to be trained in this run
+        scorers: list
+          list of scoring functions to evaluate the performance of the model
+        transforms: list
+          list of selected transformations to apply to the data
+        n_jobs: int
+         number of jobs to run in parallel. -1 means using all processors
+        random_state: int
+          random state parameter for all of the components of the pipeline
+
+    Returns:
+        grid.cv_results_: dict
+          dictionary that maps scoring function's name
+          to the score the model had scored
+        grid.best_params_: dict
+          dictionary that maps parameter name to its
+          optimal value found by the grid search cv
+
+    """
     model, params = get_model_config(model_name, random_state)
 
     pipe = Pipeline([('FeatureExtractor', FeatureExtractor(transforms)),
@@ -122,7 +191,13 @@ def run(df: pd.DataFrame, model_name, scorers, transforms: list, random_state: i
     params['MissingFeaturesImputer__max_depth'] = [10, 15]
     params['SelectKBest__n_features_to_select'] = [0.5, 0.75, 1]
 
-    grid = GridSearchCV(pipe, params, cv=5, scoring=scorers, refit='roc_auc', verbose=1, n_jobs=-1)
+    grid = GridSearchCV(pipe=pipe,
+                        params=params,
+                        cv=5,
+                        scoring=scorers,
+                        refit='roc_auc',
+                        verbose=1,
+                        n_jobs=n_jobs)
     grid.fit(X, y)
 
     return grid.cv_results_, grid.best_params_

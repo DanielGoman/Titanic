@@ -5,6 +5,22 @@ import numpy as np
 
 
 class FeatureExtractor:
+    """This class extracts and transforms features
+
+    This class applies various functions, each either transforming
+    an existent feature into a usable feature which can be fed into the models
+    or extracting new features from the existent ones
+
+    Attributes:
+        title_mapper: dict
+          a dictionary that specifies which title (which can be found in the
+          feature 'name') belongs to each 'age_group'
+        other_title: str
+          a label for the remaining titles that aren't included in title_mapper
+        cols_to_drop: list
+          a list of column names which should be dropped once all the transformations
+          are done
+    """
     title_mapper = {'junior': ['Miss.', 'Miss', 'Master.', 'Master'],
                     'senior': ['Ms.', 'Mrs.', 'Ms', 'Mrs', 'Mr.', 'Mr', 'Dr.']
                     }
@@ -20,6 +36,19 @@ class FeatureExtractor:
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+        """Transforms the input dataframe
+
+        Iteratively applies all the transformations that the class
+        was given when initialized through 'self.transforms'
+
+        Args:
+            X: pd.DataFrame
+              the dataframe to be transformed
+
+        Returns:
+            out_df: pd.DataFrame
+              the transformed dataframe
+        """
         df = X.copy()
 
         out_df = df.copy()
@@ -28,13 +57,22 @@ class FeatureExtractor:
 
         return out_df
 
-    # Split the 'Cabin' feature into 2 features - 'cabin_type' and 'cabin_indexes'
-    #   'cabin_type' - the first letter of the 'Cabin' feature
-    #   'cabin_indexes' - the room numbers that follow the first letter of the 'Cabin' feature
-    # input:    df: pd.DataFrame - target df
-    # output:   cabin_df: pd.DataFrame - transformed df
     @staticmethod
     def cabin_transform(df: pd.DataFrame) -> pd.DataFrame:
+        """Processes the 'Cabin' feature
+
+        Creates 2 new features using the 'Cabin' feature:
+            'cabin_type' - the first letter of the 'Cabin' feature
+            'cabin_indexes' - the room numbers that follows the first letter of the 'Cabin' feature
+
+        Args:
+            df: pd.DataFrame
+              the dataframe to be transformed
+
+        Returns:
+            cabin_df: pd.DataFrame
+             the transformed dataframe
+        """
         cabins = df['Cabin'].dropna()
         cabins = cabins.map(lambda x: x.split(' '))
 
@@ -57,15 +95,24 @@ class FeatureExtractor:
 
         return cabin_df
 
-    # Added 'grouping_type' feature with 4 categories:
-    #   parents_with_kids - passenger which is a parent with kids on board
-    #   kids_with_parents - passenger which is a kid with parents on board
-    #   alone_or_friends - passenger which is either alone or is traveling with friends on board
-    #   other - any other unhandled case
-    # input:    df: pd.DataFrame - target df
-    # output:   grouping_type_df: pd.DataFrame - transformed df
     @staticmethod
     def grouping_type_transform(df: pd.DataFrame) -> pd.DataFrame:
+        """Creates the feature 'grouping type'
+
+        Heuristically creates a new feature 'grouping type' with the following labels:
+            parents_with_kids - passenger which is a parent with kids on board
+            kids_with_parents - passenger which is a kid with parents on board
+            alone_or_friends - passenger which is either alone or is traveling with friends on board
+            other - any other unhandled case
+
+        Args:
+            df: pd.DataFrame
+              the dataframe to be transformed
+
+        Returns:
+            trouping_type_df: pd.DataFrame
+              the transformed dataframe
+        """
         parents_idx = df[((df['Age'] > 20) & (df['SibSp'] == 1) & (df['Parch'] > 0)) |
                          ((df['Age'] > 25) & (df['Parch'] > 0))
                          ].index
@@ -92,12 +139,21 @@ class FeatureExtractor:
 
         return grouping_type_df
 
-    # Added binary 'SibSp' and 'Parch' features
-    #   i.e. 1 if val > 0, else 0
-    # input:    df: pd.DataFrame - target df
-    # output:   boolean_df: pd.DataFrame - transformed df
     @staticmethod
     def boolean_sibsp_parch(df: pd.DataFrame) -> pd.DataFrame:
+        """Creates boolean features out of numerics features
+
+        Creates binary features of 'SibSp' and 'Parch'.
+        'binary_SibSp' and 'binary_parch' respectively.
+
+        Args:
+            df: pd.DataFrame
+              the dataframe to be transformed
+
+        Returns:
+            boolean_df: pd.DataFrame
+              the transformed dataframe
+        """
         boolean_df = df.copy()
         boolean_df['binary_SibSp'] = 0
         boolean_df.loc[boolean_df['SibSp'] > 0, 'binary_SibSp'] = 1
@@ -107,13 +163,21 @@ class FeatureExtractor:
 
         return boolean_df
 
-    # Added 'multiple_cabins' feature
-    #   1 - if the passenger has more than one cabin
-    #   0 - if they have only 1 cabin
-    # input:    df: pd.DataFrame - target df
-    # output:   in_cabin_count_df: pd.DataFrame - transformed df
     @staticmethod
     def multiple_cabins_transform(df: pd.DataFrame) -> pd.DataFrame:
+        """Creates the 'multiple_cabins' feature
+
+        Creates the 'multiple_cabins' feature, which specifies if in the dataset
+        more than one person had been assigned to the same set of cabins
+
+        Args:
+            df: pd.DataFrame
+              the dataframe to be transformed
+
+        Returns:
+            in_cabin_count_df: pd.DataFrame
+              the transformed dataframe
+        """
         in_cabin_count_df = df.copy()
 
         cabin_count = df['Cabin'].value_counts()
@@ -125,13 +189,23 @@ class FeatureExtractor:
 
         return in_cabin_count_df
 
-    # Added 'age_group' feature according to the title of the passengers
-    #   Mapping can be found in FeatureExtractor.title_mapper
-    # input:    df: pd.DataFrame - target df
-    # output:   cabin_df: pd.DataFrame - transformed df
-    # Credit to Moshe Nahs for the idea
     @staticmethod
     def age_groups_transform(df: pd.DataFrame) -> pd.DataFrame:
+        """Creates the 'age_group' feature
+
+        Credit to Moshe Nahs for the idea ;)
+
+        Uses the 'title_mapper' dict to map each person in the dataset
+        to a certain age group according to their title, found in the 'name' feature
+
+        Args:
+            df: pd.DataFrame
+              the dataframe to be transformed
+
+        Returns:
+            age_grp_df: pd.DataFrame
+              the transformed dataframe
+        """
         age_grp_df = df.copy()
 
         def title_classifier(name):

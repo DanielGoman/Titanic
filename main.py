@@ -6,7 +6,7 @@ from src.RunGridsearchCV import run
 
 def main():
     dataset_path = 'data/train.csv'
-    out_path = 'output.txt'
+    out_path = 'output/output.txt'
 
     df = pd.read_csv(dataset_path)
 
@@ -26,6 +26,7 @@ def main():
         scorers=scorers,
         transforms=transforms,
         out_path=out_path,
+        n_jobs=-1,
         random_state=42)
 
 

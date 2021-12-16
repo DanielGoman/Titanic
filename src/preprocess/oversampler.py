@@ -5,16 +5,43 @@ from imblearn.over_sampling import SMOTENC
 
 
 class Oversampler:
+    """Handles oversampling
+
+    This class performs SMOTE oversampling over the transformed
+    and imputed input dataframe
+
+    Attributes:
+        categorial_features: list
+          list of categorial features in the transformed dataset
+        target_feature: str
+          The name of the feature we're trying to predict
+    """
     categorial_features = ['Embarked', 'Pclass', 'Sex', 'age_group', 'cabin_type',
                            'binary_SinSp', 'binary_parch', 'grouping_type', 'multiple_cabins']
     target_feature = 'Survived'
-    missing_features = ['age', 'Cabin']
 
     def __init__(self):
         pass
 
     @staticmethod
     def fit_resample(X: pd.DataFrame, y: pd.Series):
+        """Oversamples the dataset
+
+        Uses SMOTE to oversample dataset to balance the ratio
+        among classes of the target feature
+
+        Args:
+            X: pd.DataFrame
+              the transformed and imputed input dataframe
+            y: pd.Series
+              the corresponding labels for X
+
+        Returns:
+            oversampled_X: np.ndarray
+              array of the oversampled independent features
+            oversampled_Y: np.ndarray
+              vector of the oversampled target feature, corresponding to oversampled_X
+        """
         categorial_columns_indexes = []
         for i, col in enumerate(X.columns):
             for categorial_feature in Oversampler.categorial_features:
