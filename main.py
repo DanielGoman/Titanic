@@ -1,15 +1,14 @@
-from src.model import Model
-from src.FeatureExtractor import FeatureExtractor
-from src.MissingFeaturesImputer import MissingFeaturesImputer
-from src.SelectKBest import SelectKBest
-
+from src.preprocess.FeatureExtractor import FeatureExtractor
 import pandas as pd
-from sklearn.pipeline import Pipeline
-from sklearn.model_selection import GridSearchCV
+
+from src.RunGridsearchCV import run
 
 
 def main():
-    df = pd.read_csv('data/train.csv')
+    dataset_path = 'data/train.csv'
+    out_path = 'output.txt'
+
+    df = pd.read_csv(dataset_path)
 
     transforms = [FeatureExtractor.cabin_transform,
                   FeatureExtractor.grouping_type_transform,
@@ -18,26 +17,16 @@ def main():
                   FeatureExtractor.age_groups_transform,
                   FeatureExtractor.drop_columns_transform]
 
-    pipe = Pipeline([('FeatureExtractor', FeatureExtractor(transforms)),
-                     ('SelectKBest', SelectKBest()),
-                     ('MissingFeaturesImputer', MissingFeaturesImputer()),
-                     ('Model', Model())
-                     ])
+    models = ['AdaBoost', 'GradientBoost', 'XGBoost']   # 'RandomForest', 'SVM'
 
-    X = df.drop('Survived', axis=1)
-    y = df['Survived']
+    scorers = ['roc_auc', 'f1', 'balanced_accuracy']
 
-    params = {}
-    params['MissingFeaturesImputer__n_estimators'] = [300]
-    params['MissingFeaturesImputer__max_depth'] = [25]
-    params['SelectKBest__numerical_features_num'] = [4, 5, 6, 7]
-    params['SelectKBest__categorial_features_num'] = [3, 4, 5]
-
-    grid = GridSearchCV(pipe, params, cv=5, scoring='roc_auc')
-    grid.fit(X, y)
-
-    print(f'Best score: {grid.best_score_}')
-    print(f'Best params: {grid.best_params_}')
+    run(df=df,
+        model_names=models,
+        scorers=scorers,
+        transforms=transforms,
+        out_path=out_path,
+        random_state=42)
 
 
 if __name__ == '__main__':
