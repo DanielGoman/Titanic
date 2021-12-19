@@ -21,6 +21,7 @@ def main():
 
     scorers = ['roc_auc', 'f1', 'balanced_accuracy']
 
+    # either 'grid' or 'randomized'
     search_type = 'randomized'
 
     run(df=df,

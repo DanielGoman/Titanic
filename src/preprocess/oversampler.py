@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import itertools
+
 import pandas as pd
 from imblearn.over_sampling import SMOTENC
 
@@ -42,11 +44,11 @@ class Oversampler:
             oversampled_Y: np.ndarray
               vector of the oversampled target feature, corresponding to oversampled_X
         """
-        categorial_columns_indexes = []
-        for i, col in enumerate(X.columns):
-            for categorial_feature in Oversampler.categorial_features:
-                if col.startswith(categorial_feature):
-                    categorial_columns_indexes.append(i)
+
+        # maps
+        categorial_columns_indexes = list({index for categorial_feature, (index, col_name) in
+                                          itertools.product(Oversampler.categorial_features, enumerate(X.columns))
+                                          if col_name.startswith(categorial_feature)})
 
         oversampler = SMOTENC(categorical_features=categorial_columns_indexes, random_state=42)
 

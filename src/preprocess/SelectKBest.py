@@ -4,6 +4,12 @@ from sklearn.feature_selection import RFE
 
 
 class SelectKBest:
+    """This class selects a subset of features for the model
+
+    This class selects a subset of features for the model using
+    Recursive Feature Elimination, where the amount of features selected
+    depends on the 'n_features_to_select' parameter
+    """
     def __init__(self, estimator):
         self.estimator = estimator
         self.rfe = None

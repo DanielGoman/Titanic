@@ -3,8 +3,9 @@ from src.preprocess.FeatureExtractor import FeatureExtractor
 from src.preprocess.MissingFeaturesImputer import MissingFeaturesImputer
 from src.preprocess.SelectKBest import SelectKBest
 from src.preprocess.oversampler import Oversampler
+from src.decorators import set_logger, run_all_models
 
-import pandas as pd
+# model selection
 from imblearn.pipeline import Pipeline
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 
@@ -12,34 +13,17 @@ from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, GradientBoostingClassifier
 from xgboost import XGBClassifier
+from sklearn.base import ClassifierMixin
 
+# basic data packages
+import pandas as pd
+
+# utility
 import time
-import os
+import timeit
 
 
 # TODO: add a graph to compare the performance of the models over different metrics
-
-
-def run_all_models(func):
-    def run_loop(**kargs):
-        """Decorator that runs all chosen models
-
-        Empties the output file and iteratively calls runs a grid search cv
-        for each of the models.
-
-        Args:
-            **kargs:
-              dictionary of key worded parameters to pass to func
-        """
-        model_names = kargs.pop('model_names')
-        if os.path.exists(kargs['out_path']):
-            os.remove(kargs['out_path'])
-
-        for model_name in model_names:
-            print(f'Running {model_name}:')
-            func(model_name=model_name, **kargs)
-
-    return run_loop
 
 
 def runtime_counter(func):
@@ -64,46 +48,48 @@ def runtime_counter(func):
     return timer
 
 
-def set_logger(func):
-    def logger(**kargs):
-        """Logger decorator
-
-        Writes output to both the terminal and an output file
-
-        Args:
-            **kargs:
-              dictionary of key worded parameters to pass to func
-        """
-        out_path = kargs.pop('out_path')
-        model_name = kargs['model_name']
-        scorers = kargs['scorers']
-
-        score, best_params = func(**kargs)
-
-        with open(out_path, 'a') as f:
-            f.write(f'{model_name} scores:\n')
-            for scorer in scorers:
-                score_str = f'\t{scorer} score: {round(score[f"mean_test_{scorer}"][0], 4)}'
-                f.write(f'{score_str}\n')
-                print(score_str)
-
-            f.write(f'\n\t{model_name} best params:\n')
-            print(f'{model_name} best params:')
-            for param_name, param_value in best_params.items():
-                best_params_str = f'\t\t{param_name} = {param_value}'
-                f.write(f'{best_params_str}\n')
-                print(best_params_str)
-
-            f.write('\n\n')
-
-    return logger
-
-
-def get_model_config(model_name: str, random_state: int) -> (None, dict, bool):
+def get_model_config(model_name: str) -> dict:
     """Model parameters configuration function
 
     For each model configures the chosen parameters to use
     for the grid search cv
+
+    Args:
+        model_name: str
+          dictionary of key worded parameters to pass to func
+
+    Returns:
+        params: dict
+          dictionary of parameters for the model component
+    """
+    model_params = dict()
+    if model_name == 'RandomForest':
+        model_params['Model__n_estimators'] = [150, 300]
+        model_params['Model__max_depth'] = [5, 7]
+        model_params['Model__min_samples_split'] = [2]
+    elif model_name == 'AdaBoost':
+        model_params['Model__n_estimators'] = [200, 300]
+        model_params['Model__learning_rate'] = [0.1, 0.15]
+    elif model_name == 'GradientBoost':
+        model_params['Model__min_samples_split'] = [2]
+        model_params['Model__max_depth'] = [3, 5]
+        model_params['Model__learning_rate'] = [0.05, 0.1]
+        model_params['Model__n_estimators'] = [300, 400]
+    elif model_name == 'XGBoost':
+        model_params['Model__eta'] = [1, 2]
+        model_params['Model__gamma'] = [1, 2]
+        model_params['Model__max_depth'] = [4]
+    elif model_name == 'SVM':
+        model_params['Model__kernel'] = ['rbf', 'poly']
+        model_params['Model__degree'] = [2, 3]
+
+    return model_params
+
+
+def get_initialized_model(model_name: str, random_state: int) -> ClassifierMixin:
+    """Model initialization function
+
+    Initializes the desired model with its respective parameters
 
     Args:
         model_name: str
@@ -113,35 +99,39 @@ def get_model_config(model_name: str, random_state: int) -> (None, dict, bool):
 
     Returns:
         Model:
-          the model component for the pipeline
-        params: dict
-          dictionary of parameters for the model component
+          the model component for the pipeline, initialized
     """
-    model_params = dict()
     if model_name == 'RandomForest':
-        model_params['Model__n_estimators'] = [150, 300]
-        model_params['Model__max_depth'] = [5, 7]
-        model_params['Model__min_samples_split'] = [2, 3]
-        return RandomForestClassifier(random_state=random_state), model_params
+        return RandomForestClassifier(random_state=random_state)
     if model_name == 'AdaBoost':
-        model_params['Model__n_estimators'] = [200, 300]
-        model_params['Model__learning_rate'] = [0.1, 0.2]
-        return AdaBoostClassifier(random_state=random_state), model_params
+        return AdaBoostClassifier(random_state=random_state)
     if model_name == 'GradientBoost':
-        model_params['Model__min_samples_split'] = [2]
-        model_params['Model__max_depth'] = [3, 5]
-        model_params['Model__learning_rate'] = [0.05, 0.1]
-        model_params['Model__n_estimators'] = [300, 400]
-        return GradientBoostingClassifier(random_state=random_state), model_params
+        return GradientBoostingClassifier(random_state=random_state)
     elif model_name == 'XGBoost':
-        model_params['Model__eta'] = [1]  # [1, 2]
-        model_params['Model__gamma'] = [1, 2]
-        model_params['Model__max_depth'] = [4, 6]
-        return XGBClassifier(use_label_encoder=False, random_state=random_state, verbosity=0), model_params
+        return XGBClassifier(use_label_encoder=False, random_state=random_state, verbosity=0)
     elif model_name == 'SVM':
-        model_params['Model__kernel'] = ['rbf']
-        model_params['Model__degree'] = [2]
-        return SVC(random_state=random_state), model_params
+        return SVC(random_state=random_state)
+    else:
+        raise ValueError(f"Invalid model name {model_name} for parameter 'model_name'")
+
+
+def add_pipeline_params(model_params: dict) -> dict:
+    """Addition of pipeline parameters
+
+    Adds to the parameter grid parameters of the pipeline
+
+    Args:
+        model_params: dict
+          dict of parameters of the selected model
+    Returns:
+        pipe_params: dict
+          dict of parameters of the selected model and of the pipeline
+    """
+    pipe_params = model_params.copy()
+    pipe_params['MissingFeaturesImputer__n_estimators'] = [75, 150]
+    pipe_params['MissingFeaturesImputer__max_depth'] = [10, 15]
+    pipe_params['SelectKBest__n_features_to_select'] = [0.5, 0.75]
+    return pipe_params
 
 
 @run_all_models
@@ -178,7 +168,8 @@ def run(df: pd.DataFrame, model_name: str, search_type: str, scorers: list,
           optimal value found by the grid search cv
 
     """
-    model, pipe_params = get_model_config(model_name, random_state)
+    model = get_initialized_model(model_name, random_state)
+    model_params = get_model_config(model_name)
 
     pipe = Pipeline([('FeatureExtractor', FeatureExtractor(transforms)),
                      ('MissingFeaturesImputer', MissingFeaturesImputer()),
@@ -187,12 +178,10 @@ def run(df: pd.DataFrame, model_name: str, search_type: str, scorers: list,
                      ('Model', model)
                      ])
 
+    pipe_params = add_pipeline_params(model_params)
+
     X = df.drop('Survived', axis=1)
     y = df['Survived']
-
-    pipe_params['MissingFeaturesImputer__n_estimators'] = [75, 150]
-    pipe_params['MissingFeaturesImputer__max_depth'] = [10, 15]
-    pipe_params['SelectKBest__n_features_to_select'] = [0.5, 0.75, 1]
 
     search_params = {'estimator': pipe,
                      'cv': 5,
@@ -212,4 +201,3 @@ def run(df: pd.DataFrame, model_name: str, search_type: str, scorers: list,
     grid.fit(X, y)
 
     return grid.cv_results_, grid.best_params_
-

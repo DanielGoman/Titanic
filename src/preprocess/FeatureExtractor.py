@@ -7,8 +7,8 @@ import numpy as np
 class FeatureExtractor:
     """This class extracts and transforms features
 
-    This class applies various functions, each either transforming
-    an existent feature into a usable feature which can be fed into the models
+    This class applies various transformations, each either transforming
+    an existent feature into a usable feature which can be fed into the models,
     or extracting new features from the existent ones
 
     Attributes:
